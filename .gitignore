@@ -1,0 +1,6 @@
+
+node_modules/
+.env
+backups/*.dump
+coverage/
+npm-debug.log*
