@@ -177,3 +177,56 @@ spec:
   ports:
     - port: 80
       targetPort: 3000
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recovery-canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recovery-canary
+  template:
+    metadata:
+      labels:
+        app: recovery-canary
+    spec:
+      containers:
+        - name: recovery-app
+          image: enterprise-disaster-recovery-green
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DB_HOST
+              value: db
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: recovery-db-secret
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: recovery-db-secret
+                  key: POSTGRES_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: recovery-db-secret
+                  key: POSTGRES_DB
+            - name: SERVER_NAME
+              value: Canary Environment
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recovery-canary
+spec:
+  selector:
+    app: recovery-canary
+  ports:
+    - port: 3000
+      targetPort: 3000
