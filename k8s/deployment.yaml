@@ -1,0 +1,153 @@
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recovery-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recovery-db
+  template:
+    metadata:
+      labels:
+        app: recovery-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: admin
+            - name: POSTGRES_PASSWORD
+              value: admin123
+            - name: POSTGRES_DB
+              value: enterprise_db
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  selector:
+    app: recovery-db
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recovery-blue
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recovery-blue
+  template:
+    metadata:
+      labels:
+        app: recovery-blue
+    spec:
+      containers:
+        - name: recovery-app
+          image: enterprise-disaster-recovery-blue
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DB_HOST
+              value: db
+            - name: DB_USER
+              value: admin
+            - name: DB_PASSWORD
+              value: admin123
+            - name: DB_NAME
+              value: enterprise_db
+            - name: SERVER_NAME
+              value: Blue Environment
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recovery-blue
+spec:
+  selector:
+    app: recovery-blue
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recovery-green
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recovery-green
+  template:
+    metadata:
+      labels:
+        app: recovery-green
+    spec:
+      containers:
+        - name: recovery-app
+          image: enterprise-disaster-recovery-green
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DB_HOST
+              value: db
+            - name: DB_USER
+              value: admin
+            - name: DB_PASSWORD
+              value: admin123
+            - name: DB_NAME
+              value: enterprise_db
+            - name: SERVER_NAME
+              value: Green Environment
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recovery-green
+spec:
+  selector:
+    app: recovery-green
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recovery-active
+spec:
+  selector:
+    app: recovery-blue
+  ports:
+    - port: 80
+      targetPort: 3000
