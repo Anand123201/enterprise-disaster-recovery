@@ -147,7 +147,7 @@ metadata:
   name: recovery-active
 spec:
   selector:
-    app: recovery-blue
+    app: recovery-green
   ports:
     - port: 80
       targetPort: 3000
